@@ -1,32 +1,84 @@
 <template>
   <div id="app">
-    <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link>
-    </div>
-    <router-view/>
+    <Navigation :user="user" @logout="logout"/>
+    
+    <router-view 
+    :user="user" 
+    :rooms="rooms" 
+    @logout="logout" 
+    @addRoom="addRoom"
+    @deleteRoom="deleteRoom"/>
   </div>
 </template>
 
-<style lang="scss">
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-}
-
-#nav {
-  padding: 30px;
-
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
+<script>
+import db from '../src/db';
+import Firebase from 'firebase';
+import Navigation from '@/components/Navigation'
+export default {
+  name: "App",
+  data : function(){
+    return {
+      user : null,
+      rooms: []
     }
+  },
+
+  methods:{
+    logout : function(){
+      Firebase.auth().signOut().then(()=>{
+        this.user= null
+        this.$router.push('login')
+      })
+    },
+    addRoom : function(roomName){
+      db.collection('users')
+      .doc(this.user.uid)
+      .collection('rooms')
+      .add({
+        name : roomName,
+        createdAt : Firebase.firestore.FieldValue.serverTimestamp()
+      })
+    },
+    deleteRoom : function (roomID){
+      db.collection('users')
+      .doc(this.user.uid)
+      .collection('rooms')
+      .doc(roomID)
+      .delete()
+    }
+  },
+  mounted(){
+   Firebase.auth().onAuthStateChanged(user => {
+     if(user) {
+       this.user = user
+       db.collection('users')
+       .doc(this.user.uid)
+       .collection('rooms')
+       .onSnapshot(snapShot => {
+         const snapData = []
+         snapShot.forEach(document=>{
+           snapData.push({
+             id : document.id ,
+             name : document.data().name
+           })
+         })
+         this.rooms = snapData.sort((a,b)=>{
+           if(a.name.toLowerCase() < b.name.toLowerCase()){
+             return -1
+           }else return 1
+         });
+       })
+       
+       }
+   })
+  }
+  ,
+  components:{
+    Navigation
   }
 }
+</script>
+<style lang="scss">
+@import  'node_modules/bootstrap/scss/bootstrap';
 </style>
